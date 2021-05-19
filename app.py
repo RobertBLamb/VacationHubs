@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request
 import map
-
+from geopy import distance
+from math import sqrt
 app = Flask(__name__)
 
 
@@ -14,11 +15,13 @@ def index():
         # print(e)
 
     try:
-        dist = int(request.form['dist'])
-        metric = int(request.form['metric'])
+        generate = bool(request.form['generate'])
+        # dist = int(request.form['dist'])
+        # metric = int(request.form['metric'])
     except Exception as e:
-        dist = None
-        metric = None
+        # dist = None
+        # metric = None
+        generate = None
         # print(e)
 
     try:
@@ -35,15 +38,13 @@ def index():
             print('making new map')
             map.clear_set()
             map.new_map()
-        elif dist:
+        elif generate:
             print("Clustering Points")
-            if metric == 1:
-                pass
-            elif metric == 2:
-                pass
-
-            # todo: this is temporary
-            # code or something
+            # if metric == 1:
+            #     pass
+            # elif metric == 2:
+            #     pass
+            map.make_map()
 
     # return different paths for the index template
     else:

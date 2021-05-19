@@ -3,18 +3,22 @@ import pandas as pd
 
 import folium
 import geopy
+from geopy import distance
 
 from sklearn.neighbors._nearest_centroid import NearestCentroid
-from scipy.cluster.hierarchy import linkage, fcluster
+from scipy.cluster.hierarchy import linkage, fcluster, fclusterdata, dendrogram
 import googlemaps
+import matplotlib.pyplot as plt
+
 
 import os
 
 API_KEY = os.environ.get('GOOGLE_MAP_KEY')
-# gmaps = googlemaps.Client(key=API_KEY)
+gmaps = googlemaps.Client(key=API_KEY)
 locations_to_map = []
 map_ = folium.Map
 point_size = 15
+
 
 class Points:
 
@@ -68,13 +72,15 @@ def new_map():
 def make_map():
     # todo: temporary until user is able to give input
     # region temp values
-    dtf = pd.read_csv('JapanVals.csv')
+    point_array = []
+    for point in Points.all_points:
+        point_array.append([point.name, float(point.geo['lat']), float(point.geo['lng'])])
 
-    dtf = dtf[["city", "country", "lon", "lat", "name"]].reset_index(drop=True)
-    dtf = dtf.reset_index().rename(columns={"index": "id"})
-    dtf["size"] = 15
+    point_array = np.array(point_array)
+    dtf = pd.DataFrame(point_array)
+    dtf[3] = 15
     dtf.head()
-    # endregion
+
 
     # region where to start map
     city = "Kyoto"
@@ -85,23 +91,22 @@ def make_map():
     # keep latitude and longitude only
     location = [location.latitude, location.longitude]
     print("[lat, lon]:", location)
-
+    # endregion
+    # 0 = name, 1 = lat, 2 = lng, 3 = size, 4 = cluster
     centroids = get_centroids(dtf)
     cluster_points(dtf, location, centroids)
-    # endregion
 
 
 def get_centroids(dtf):
-
+    X = dtf[[1, 2]]
     # generate the linkage matrix
-    X = dtf[['lat', 'lon']].values
-    cluster = fcluster(linkage(X), .07, criterion='distance')
-    dtf[["cluster"]] = cluster
-    # print(dtf)
+    cluster = fcluster(linkage(X), .10, criterion='distance')
+    dtf[[4]] = cluster
 
     # centroid information
     y = np.array(cluster)
     clf = NearestCentroid()
+    # todo: error if only one cluster
     clf.fit(X, y)
     cluster_centers = clf.centroids_
     return cluster_centers
@@ -109,20 +114,18 @@ def get_centroids(dtf):
 
 def cluster_points(dtf, location, cluster_centers):
     # region cluster map
-    x, y = "lat", "lon"
-    color = "cluster"
-    size = "size"
-    popup = "name"
+    x, y = 1, 2
+    color = 4
+    size = 3
+    popup = 0
     data = dtf.copy()
 
     # create color column
     lst_elements = sorted(list(dtf[color].unique()))
     lst_colors = ['#%06X' % np.random.randint(0, 0xFFFFFF) for i in
                   range(len(lst_elements))]
-    data["color"] = data[color].apply(lambda x:
+    data[color] = data[color].apply(lambda x:
                                       lst_colors[lst_elements.index(x)])
-
-    data['size'] = dtf['size']
 
     # initialize the map with the starting location
     global map_
@@ -132,12 +135,12 @@ def cluster_points(dtf, location, cluster_centers):
     # add points
     data.apply(lambda row: folium.CircleMarker(
         location=[row[x], row[y]], popup=row[popup],
-        color=row["color"], fill=True,
-        radius=row["size"]).add_to(map_), axis=1)
+        color=row[color], fill=True,
+        radius=row[size]).add_to(map_), axis=1)
 
     # region legend
     # add html legend
-    legend_html = """<div style="position:fixed; bottom:10px; left:10px; border:2px solid black; z-index:9999; font-size:14px;">&nbsp;<b>""" + color + """:</b><br>"""
+    legend_html = """<div style="position:fixed; bottom:10px; left:10px; border:2px solid black; z-index:9999; font-size:14px;">&nbsp;<b>""" + "Hubs" + """:</b><br>"""
     for i in lst_elements:
         legend_html = legend_html + """&nbsp;<i class="fa fa-circle
          fa-1x" style="color:""" + lst_colors[lst_elements.index(i)] + """">
@@ -148,19 +151,19 @@ def cluster_points(dtf, location, cluster_centers):
 
     # todo: turn back on when project is done
     # add centroids marker
-    # for points in cluster_centers:
-    #     arr = list(points)
-    #
-    #     hotel = ''
-    #
-    #     recommended_site = gmaps.places_nearby(location=arr, radius=500, type='lodging')
-    #     try:
-    #         hotel = str(recommended_site['results'][0]['name'])
-    #     except:
-    #         hotel = 'There are no hotels closeby this location'
-    #     folium.Marker(location=[points[0], points[1]],
-    #                   popup=hotel, draggable=False,
-    #                   icon=folium.Icon(color="black")).add_to(map_)
+    for points in cluster_centers:
+        arr = list(points)
+
+        hotel = ''
+
+        recommended_site = gmaps.places_nearby(location=arr, radius=500, type='lodging')
+        try:
+            hotel = str(recommended_site['results'][0]['name'])
+        except:
+            hotel = 'There are no hotels closeby this location'
+        folium.Marker(location=[points[0], points[1]],
+                      popup=hotel, draggable=False,
+                      icon=folium.Icon(color="black")).add_to(map_)
 
     # plot the map
     # endregion
