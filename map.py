@@ -37,6 +37,7 @@ def new_point(address_to_search):
     global map_
     address, geo, name = get_location_info(address_to_search)
     if len(Points.all_points) == 1:
+
         Points.starting_loc = [geo['lat'], geo['lng']]
         map_ = folium.Map(location=Points.starting_loc, height='77.5%', tiles="cartodbpositron", zoom_start=11)
 
@@ -52,11 +53,11 @@ def get_location_info(address_to_search):
     address = place['formatted_address']
     geometry = place['geometry']['location']
     name = place['name']
+
     Points.all_points.add(Points(address, geometry, name))
     return address, geometry, name
 
 
-# todo: decide on better way to have a starting point
 def new_map():
     global map_
     city = "Kyoto"
@@ -120,7 +121,7 @@ def cluster_points(dtf, location, cluster_centers):
 
     # region starting point for map
     global map_
-    map_ = folium.Map(location=location, tiles="cartodbpositron",
+    map_ = folium.Map(location=location, height='77.5%', tiles="cartodbpositron",
                       zoom_start=11)
     # endregion
 
