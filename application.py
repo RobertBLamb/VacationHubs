@@ -1,9 +1,9 @@
 from flask import Flask, render_template, request
 import map
-app = Flask(__name__)
+application = Flask(__name__)
 
 
-@app.route('/', methods=['GET', 'POST'])
+@application.route('/', methods=['GET', 'POST'])
 def index():
 
     try:
@@ -54,6 +54,3 @@ def index():
 
     return render_template('index.html', value=map.map_._repr_html_())
 
-
-if __name__ == '__main__':
-    app.run(debug=True)
