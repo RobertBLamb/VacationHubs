@@ -156,4 +156,3 @@ def cluster_points(dtf, location, cluster_centers):
                       popup=hotel, draggable=False,
                       icon=folium.Icon(color="black")).add_to(map_)
     # endregion
-
