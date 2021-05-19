@@ -3,13 +3,10 @@ import pandas as pd
 
 import folium
 import geopy
-from geopy import distance
 
 from sklearn.neighbors._nearest_centroid import NearestCentroid
-from scipy.cluster.hierarchy import linkage, fcluster, fclusterdata, dendrogram
+from scipy.cluster.hierarchy import linkage, fcluster
 import googlemaps
-import matplotlib.pyplot as plt
-
 
 import os
 
@@ -23,6 +20,7 @@ point_size = 15
 class Points:
 
     all_points = set()
+    starting_loc = []
 
     def __init__(self, address, geo, name):
         self.name = name
@@ -32,11 +30,16 @@ class Points:
 
 def clear_set():
     Points.all_points = set()
+    Points.starting_loc = []
 
 
 def new_point(address_to_search):
     global map_
     address, geo, name = get_location_info(address_to_search)
+    if len(Points.all_points) == 1:
+        Points.starting_loc = [geo['lat'], geo['lng']]
+        map_ = folium.Map(location=Points.starting_loc, height='77.5%', tiles="cartodbpositron", zoom_start=11)
+
     folium.CircleMarker(location=[geo['lat'], geo['lng']], popup=name,
                         color='black', fill=True,
                         radius=15).add_to(map_)
@@ -60,13 +63,10 @@ def new_map():
     # get location
     locator = geopy.geocoders.Nominatim(user_agent="MyCoder")
     location = locator.geocode(city)
-    print(location)
     # keep latitude and longitude only
     location = [location.latitude, location.longitude]
-    print("[lat, lon]:", location)
     # todo: this stays
-    map_ = folium.Map(location=location, tiles="cartodbpositron",
-               zoom_start=11)
+    map_ = folium.Map(location=location, height='77.5%', tiles="cartodbpositron", zoom_start=11)
 
 
 def make_map():
@@ -81,20 +81,9 @@ def make_map():
     dtf[3] = 15
     dtf.head()
 
-
-    # region where to start map
-    city = "Kyoto"
-    # get location
-    locator = geopy.geocoders.Nominatim(user_agent="MyCoder")
-    location = locator.geocode(city)
-    print(location)
-    # keep latitude and longitude only
-    location = [location.latitude, location.longitude]
-    print("[lat, lon]:", location)
-    # endregion
     # 0 = name, 1 = lat, 2 = lng, 3 = size, 4 = cluster
     centroids = get_centroids(dtf)
-    cluster_points(dtf, location, centroids)
+    cluster_points(dtf, Points.starting_loc, centroids)
 
 
 def get_centroids(dtf):
@@ -113,33 +102,36 @@ def get_centroids(dtf):
 
 
 def cluster_points(dtf, location, cluster_centers):
-    # region cluster map
+    # region setup data for interpretation
     x, y = 1, 2
     color = 4
     size = 3
     popup = 0
     data = dtf.copy()
+    # endregion
 
-    # create color column
+    # region give each cluster value a color
     lst_elements = sorted(list(dtf[color].unique()))
-    lst_colors = ['#%06X' % np.random.randint(0, 0xFFFFFF) for i in
+    lst_colors = ['#%06X' % np.random.randint(0, 0xFFFFFF) for _ in
                   range(len(lst_elements))]
     data[color] = data[color].apply(lambda x:
                                       lst_colors[lst_elements.index(x)])
+    # endregion
 
-    # initialize the map with the starting location
+    # region starting point for map
     global map_
     map_ = folium.Map(location=location, tiles="cartodbpositron",
                       zoom_start=11)
+    # endregion
 
-    # add points
+    # region add points to map
     data.apply(lambda row: folium.CircleMarker(
         location=[row[x], row[y]], popup=row[popup],
         color=row[color], fill=True,
         radius=row[size]).add_to(map_), axis=1)
+    # endregion
 
     # region legend
-    # add html legend
     legend_html = """<div style="position:fixed; bottom:10px; left:10px; border:2px solid black; z-index:9999; font-size:14px;">&nbsp;<b>""" + "Hubs" + """:</b><br>"""
     for i in lst_elements:
         legend_html = legend_html + """&nbsp;<i class="fa fa-circle
@@ -149,24 +141,18 @@ def cluster_points(dtf, location, cluster_centers):
     map_.get_root().html.add_child(folium.Element(legend_html))
     # endregion
 
-    # todo: turn back on when project is done
-    # add centroids marker
+    # region add centroids / hotel recommendations
     for points in cluster_centers:
         arr = list(points)
-
-        hotel = ''
 
         recommended_site = gmaps.places_nearby(location=arr, radius=500, type='lodging')
         try:
             hotel = str(recommended_site['results'][0]['name'])
-        except:
+        except Exception as e:
             hotel = 'There are no hotels closeby this location'
+            print(e)
         folium.Marker(location=[points[0], points[1]],
                       popup=hotel, draggable=False,
                       icon=folium.Icon(color="black")).add_to(map_)
-
-    # plot the map
     # endregion
-
-
 

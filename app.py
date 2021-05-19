@@ -1,7 +1,5 @@
 from flask import Flask, render_template, request
 import map
-from geopy import distance
-from math import sqrt
 app = Flask(__name__)
 
 
@@ -44,11 +42,15 @@ def index():
             #     pass
             # elif metric == 2:
             #     pass
-            map.make_map()
+            try:
+                map.make_map()
+            except Exception as e:
+                print(e)
 
     # return different paths for the index template
     else:
         map.new_map()
+        # map.new_map()
 
     return render_template('index.html', value=map.map_._repr_html_())
 
